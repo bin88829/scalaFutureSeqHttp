@@ -2,6 +2,7 @@ import org.apache.http.client.methods.HttpGet
 import org.apache.http.impl.client.HttpClientBuilder
 import org.apache.http.message.BasicHeader
 import org.apache.http.util.EntityUtils
+import org.json4s.DefaultFormats
 import org.json4s.native.JsonMethods._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{Await, Future}
@@ -9,40 +10,44 @@ import java.net.URI
 import scala.concurrent.duration._
 import java.io._
 
-object PlayApiTest { 
+object PlayApiTest {
+  implicit val formats = DefaultFormats
+
   def main(args: Array[String]):Unit = {
     val SERVER_URL = args(0)
     val logFilePath =  "./logs/logs.txt"
     val logFile = new PrintWriter( logFilePath )
     
     val from = 1 //start id
-    val to = 100 // end id
-    val numId = to - from + 1
+    val to = 30 // end id
 
-    val urls: Seq[Future[String]] = List.fill( numId )( SERVER_URL ).zipWithIndex map{
-      case (v, i) =>
-        val id = from + i
-        val url = v + id
-        Future{
-          getTargets(url, logFile)
+    val urls: Seq[Future[String]] = List.range( from, to + 1) map {
+      id => Future{
+          val result = getTargets( id, SERVER_URL )
+          val resultJson = parse( result )
+          val bodyJson = ( resultJson \ "result" )
+          val rCode = ( bodyJson \ "code" ).extract[String]
+          val rValue = ( bodyJson \ "value" ).extract[String]
+          val resultStatus = messageBuilder( rCode )
+          val message = s"$id\t$rValue\t$resultStatus"
+          write2LogByLine( logFile, message )
+          ""
         }
     }
+
     val futureSeq = Future.sequence(urls)
     Await.result(futureSeq, Duration.Inf)
     logFile.close()
   }
 
-  def getTargets( url: String, printWriter : PrintWriter ):String = {
+  def getTargets( id: Int, url: String ): String = {
     val req = new HttpGet
     val client = HttpClientBuilder.create().build()
-    req.setURI(new URI( url ))
+    req.setURI( new URI( url + id ))
     req.setHeader(new BasicHeader("Accept","application/json"))
     val res = client.execute(req)
     val body = EntityUtils.toString(res.getEntity)
-    val resultStatus = messageBuilder(body)
-    val message = s"$url\t$resultStatus"
-    write2LogByLine( printWriter, message )
-    ""
+    body
   }
 
   def write2LogByLine( f : PrintWriter, m : String ) = f.write( m + "\n" )
