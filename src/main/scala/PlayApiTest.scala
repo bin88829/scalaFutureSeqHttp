@@ -21,7 +21,7 @@ object PlayApiTest {
 
     print("Where do you want to start from ?: ")
     val from = scala.io.StdIn.readLine().toInt //start
-    println("Where do you want to end to ?: ")
+    print("Where do you want to end to ?: ")
     val to = scala.io.StdIn.readLine().toInt// end
 
     val urls: Seq[Future[String]] = List.range( from, to + 1) map {
@@ -53,7 +53,7 @@ object PlayApiTest {
               val message = s"$id\t$rUuid\t$rMsg"
               message
           }
-
+          println(msg)
           write2LogByLine( logFile, msg )
           ""
         }
@@ -62,7 +62,7 @@ object PlayApiTest {
     val futureSeq = Future.sequence(urls)
     Await.result(futureSeq, Duration.Inf)
     logFile.close()
-
+    println("END")
   }
 
   def getTargets( url: String ): String = {
